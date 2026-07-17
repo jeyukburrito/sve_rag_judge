@@ -9,8 +9,7 @@ data/       입력 데이터 (git 추적)
   ShadowverseEVOLVE_cr_1.26.1_260609.pdf   종합 룰북 원본 (일본어)
   carddb/   카드 DB CSV (BP/CP 세트별) — 2단계용
   qna/      공식 Q&A 수집 데이터 (JSONL) — 2단계용
-scripts/    PDF → 텍스트 추출 스크립트
-src/        RAG 파이프라인 (청킹 → 인덱싱 → 질의 CLI)
+src/        전체 파이프라인 (PDF 추출 → 청킹 → 인덱싱 → 질의 CLI/GUI)
 tests/      pytest 단위 테스트
 docs/       설계 스펙과 구현 계획
 build/      재생성 가능한 중간 산출물 (gitignore)
@@ -30,8 +29,8 @@ pip install -r requirements.txt
 
 ```bash
 # 1회 인덱싱 (PDF 추출 → 조항 청킹 → 임베딩)
-python scripts/batch_pdf_to_json.py data build/raw_json
-python scripts/postprocess_pdf_json.py build/raw_json build/processed
+python src/batch_pdf_to_json.py data build/raw_json
+python src/postprocess_pdf_json.py build/raw_json build/processed
 python -m src.chunk_rules build/processed/ShadowverseEVOLVE_cr_1.26.1_260609.txt build/chunks.jsonl
 python -m src.build_index build/chunks.jsonl
 
@@ -51,14 +50,14 @@ python -m pytest -v
 
 ## 추출 스크립트 단독 사용
 
-`scripts/`의 두 스크립트는 범용 PDF → 텍스트 도구로 단독 사용할 수 있습니다.
+`src/`의 두 추출 스크립트는 범용 PDF → 텍스트 도구로 단독 사용할 수 있습니다.
 
 ```bash
-python scripts/batch_pdf_to_json.py <input_dir> <output_dir> [--recursive] [--quiet]
-python scripts/postprocess_pdf_json.py <input_dir> <output_dir> [--recursive]
+python src/batch_pdf_to_json.py <input_dir> <output_dir> [--recursive] [--quiet]
+python src/postprocess_pdf_json.py <input_dir> <output_dir> [--recursive]
 ```
 
-`postprocess_pdf_json.py`의 `collect_text_by_page` 함수는 `opendataloader_pdf`의 JSON 트리 구조(`kids`, `list items`, `content`, `page number`)에 의존합니다. 업스트림 스키마가 바뀌면 이 함수를 먼저 확인하세요.
+`src/postprocess_pdf_json.py`의 `collect_text_by_page` 함수는 `opendataloader_pdf`의 JSON 트리 구조(`kids`, `list items`, `content`, `page number`)에 의존합니다. 업스트림 스키마가 바뀌면 이 함수를 먼저 확인하세요.
 
 ## 로드맵
 

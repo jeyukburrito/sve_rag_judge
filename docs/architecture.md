@@ -4,7 +4,7 @@
 flowchart TB
     subgraph OFFLINE["오프라인 인덱싱 (1회)"]
         PDF["data/<br/>종합 룰북 PDF (일본어)"]
-        EXTRACT["scripts/<br/>batch_pdf_to_json.py<br/>postprocess_pdf_json.py"]
+        EXTRACT["src/<br/>batch_pdf_to_json.py<br/>postprocess_pdf_json.py"]
         CHUNK["src/chunk_rules.py<br/>조항 번호 단위 청킹"]
         JSONL["build/chunks.jsonl<br/>659 청크 {rule_id, parent, text}"]
         BUILD["src/build_index.py<br/>LangChain + OllamaEmbeddings"]
