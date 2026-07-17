@@ -6,3 +6,8 @@ venv/
 .worktrees/
 build/
 index/
+.pytest_cache/
+.claude/
+.codex/
+.agents/
+tempCodeRunnerFile.py
