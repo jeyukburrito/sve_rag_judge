@@ -29,7 +29,7 @@ def qna_doc(rec: dict) -> tuple[str, dict]:
     text = f"Q: {rec['question']}\nA: {rec['answer']}"
     meta = {
         "qa_id": rec["qa_id"],
-        "category": rec["category"],
+        "category": rec["category"] or "",
         "cards": ",".join(c["card_code"] for c in rec["cards"]),
         "date": rec["date"],
     }

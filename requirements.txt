@@ -4,3 +4,4 @@ langchain-ollama
 ollama
 pytest
 gradio
+chromadb
