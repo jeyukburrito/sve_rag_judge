@@ -25,7 +25,7 @@ flowchart TB
         CARDS["data/carddb/ 카드 CSV 7,079장"] --> P2["src/build_phase2_index.py"]
         QNAD["data/qna/ 공식 Q&A 2,699건"] --> P2
         EXTRACT --> BUILD["src/build_index.py"]
-        P2 -.2.5단계 예정.-> GRAPH["build/graph.json<br/>카드↔재정·동명그룹·토큰참조"]
+        P2 -. "관계 맵 생성 · 2.5단계 예정" .-> GRAPH["build/graph.json<br/>카드↔재정·동명그룹·토큰참조"]
     end
 
     subgraph STORE["index/ ChromaDB (cosine)"]
@@ -41,8 +41,8 @@ flowchart TB
         CORE --> LLM["Ollama qwen3:8b<br/>인용 필수 · 우선순위: Q&A 재정 > 카드 > 룰"]
     end
     CORE -->|검색| STORE
-    CORE -.조인 (예정).-> GRAPH
-    CORE -.임베딩.-> EMB["Ollama bge-m3 (다국어, GPU)"]
+    CORE -. "조인 · 예정" .-> GRAPH
+    CORE -. "임베딩" .-> EMB["Ollama bge-m3 (다국어, GPU)"]
 ```
 
 ## 설치
