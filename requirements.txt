@@ -1,4 +1,5 @@
 opendataloader-pdf
 langchain-chroma
 langchain-ollama
+ollama
 pytest

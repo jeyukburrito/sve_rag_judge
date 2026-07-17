@@ -21,11 +21,15 @@ SYSTEM_PROMPT = (
 
 def ensure_ollama(models: list[str]) -> None:
     try:
-        installed = {m.model.split(":")[0] for m in ollama.list().models}
+        installed = [m.model for m in ollama.list().models]
     except Exception:
         sys.exit("Ollama에 연결할 수 없습니다. 설치/실행 후 재시도: https://ollama.com")
     for model in models:
-        if model.split(":")[0] not in installed:
+        if ":" in model:
+            ok = model in installed
+        else:
+            ok = any(name.split(":")[0] == model for name in installed)
+        if not ok:
             sys.exit(f"모델이 없습니다. 먼저 실행하세요: ollama pull {model}")
 
 
@@ -44,6 +48,7 @@ def answer(llm: ChatOllama, question: str, hits: list[tuple[str, str, float]]) -
 
 
 def main() -> None:
+    sys.stdout.reconfigure(encoding="utf-8")
     p = argparse.ArgumentParser(description="SVE 룰 Q&A CLI")
     p.add_argument("--db", default="index")
     p.add_argument("--llm", default=DEFAULT_LLM)

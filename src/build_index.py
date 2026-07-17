@@ -1,5 +1,6 @@
 import argparse
 import json
+import sys
 from pathlib import Path
 
 import chromadb
@@ -11,6 +12,7 @@ BATCH = 64
 
 
 def main() -> None:
+    sys.stdout.reconfigure(encoding="utf-8")
     p = argparse.ArgumentParser(description="청크 JSONL을 ChromaDB에 인덱싱")
     p.add_argument("chunks_file")
     p.add_argument("--db", default="index")
