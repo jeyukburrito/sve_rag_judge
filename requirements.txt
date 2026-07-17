@@ -3,3 +3,4 @@ langchain-chroma
 langchain-ollama
 ollama
 pytest
+gradio
