@@ -25,7 +25,7 @@ ollama pull bge-m3 && ollama pull qwen3:8b
 pip install -r requirements.txt
 ```
 
-## 룰 Q&A 사용법
+## 판정 저지 사용법
 
 ```bash
 # 1회 인덱싱 (PDF 추출 → 조항 청킹 → 임베딩)
@@ -33,12 +33,13 @@ python src/batch_pdf_to_json.py data build/raw_json
 python src/postprocess_pdf_json.py build/raw_json build/processed
 python -m src.chunk_rules build/processed/ShadowverseEVOLVE_cr_1.26.1_260609.txt build/chunks.jsonl
 python -m src.build_index build/chunks.jsonl
+python -m src.build_phase2_index
 
 # 질의 (대화형 CLI)
 python -m src.judge_cli
 ```
 
-모든 답변은 `[룰 X.X.X]` 형식으로 종합 룰북 조항을 인용하며, 근거를 찾지 못하면 그렇게 말합니다. 인덱스 경로는 실행 위치와 무관하게 리포 루트의 `index/`로 고정됩니다.
+모든 답변은 `[룰 X.X.X]` / `[카드 코드 이름]` / `[Q&A ID]` 형식으로 근거를 인용하며, 근거를 찾지 못하면 그렇게 말합니다. 근거 충돌 시 공식 Q&A 재정 > 카드 텍스트 > 종합 룰 순으로 우선합니다. 인덱스 경로는 실행 위치와 무관하게 리포 루트의 `index/`로 고정됩니다.
 
 CPU 환경에서는 답변 생성에 1~3분 걸릴 수 있습니다. 다른 LLM을 쓰려면 `--llm` 옵션을 사용하세요 (예: `--llm qwen3:4b`).
 
@@ -62,4 +63,5 @@ python src/postprocess_pdf_json.py <input_dir> <output_dir> [--recursive]
 ## 로드맵
 
 - 1단계 (완료): 종합 룰북 기반 룰 Q&A CLI
-- 2단계 (예정): 카드 DB + 공식 Q&A 데이터를 활용한 판정(룰링) 저지, GUI
+- 2단계 (완료): 카드 DB(7,079장) + 공식 Q&A(2,699건) 종합 판정 저지
+- 3단계 (예정): 한↔일 카드명 매핑, 대화 히스토리, 웹/메신저 배포
