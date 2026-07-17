@@ -1,0 +1,4 @@
+opendataloader-pdf
+langchain-chroma
+langchain-ollama
+pytest
