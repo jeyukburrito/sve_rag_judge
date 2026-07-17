@@ -1,5 +1,6 @@
 import argparse
 import sys
+from pathlib import Path
 
 import ollama
 from langchain_chroma import Chroma
@@ -8,6 +9,8 @@ from langchain_ollama import ChatOllama, OllamaEmbeddings
 
 EMBED_MODEL = "bge-m3"
 DEFAULT_LLM = "qwen3:8b"
+# cwd가 아니라 리포 루트 기준으로 고정 — src/ 안에서 실행해도 같은 인덱스를 쓴다
+DEFAULT_DB = str(Path(__file__).resolve().parent.parent / "index")
 TOP_K = 8
 MAX_DISTANCE = 0.75  # cosine distance. 전부 이보다 멀면 LLM 호출 없이 근거 없음 처리
 
@@ -50,7 +53,7 @@ def answer(llm: ChatOllama, question: str, hits: list[tuple[str, str, float]]) -
 def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8")
     p = argparse.ArgumentParser(description="SVE 룰 Q&A CLI")
-    p.add_argument("--db", default="index")
+    p.add_argument("--db", default=DEFAULT_DB)
     p.add_argument("--llm", default=DEFAULT_LLM)
     args = p.parse_args()
 
@@ -60,6 +63,11 @@ def main() -> None:
         persist_directory=args.db,
         embedding_function=OllamaEmbeddings(model=EMBED_MODEL),
     )
+    if store._collection.count() == 0:
+        sys.exit(
+            f"인덱스가 비어 있습니다: {args.db}\n"
+            "먼저 실행하세요: python -m src.build_index build/chunks.jsonl"
+        )
     llm = ChatOllama(model=args.llm)
 
     print("SVE 룰 저지 — 질문을 입력하세요 (종료: 빈 줄)")

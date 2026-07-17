@@ -8,6 +8,8 @@ from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
 
 EMBED_MODEL = "bge-m3"
+# cwd가 아니라 리포 루트 기준으로 고정 — src/ 안에서 실행해도 같은 인덱스를 쓴다
+DEFAULT_DB = str(Path(__file__).resolve().parent.parent / "index")
 BATCH = 64
 
 
@@ -15,7 +17,7 @@ def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8")
     p = argparse.ArgumentParser(description="청크 JSONL을 ChromaDB에 인덱싱")
     p.add_argument("chunks_file")
-    p.add_argument("--db", default="index")
+    p.add_argument("--db", default=DEFAULT_DB)
     args = p.parse_args()
 
     lines = Path(args.chunks_file).read_text(encoding="utf-8").splitlines()
