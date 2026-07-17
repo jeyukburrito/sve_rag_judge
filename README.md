@@ -16,6 +16,35 @@ build/      재생성 가능한 중간 산출물 (gitignore)
 index/      ChromaDB 벡터 인덱스 (gitignore)
 ```
 
+## 아키텍처
+
+```mermaid
+flowchart TB
+    subgraph OFFLINE["오프라인 인덱싱 (1회)"]
+        PDF["data/ 룰북 PDF"] --> EXTRACT["src/ PDF 추출·조항 청킹"]
+        CARDS["data/carddb/ 카드 CSV 7,079장"] --> P2["src/build_phase2_index.py"]
+        QNAD["data/qna/ 공식 Q&A 2,699건"] --> P2
+        EXTRACT --> BUILD["src/build_index.py"]
+        P2 -.2.5단계 예정.-> GRAPH["build/graph.json<br/>카드↔재정·동명그룹·토큰참조"]
+    end
+
+    subgraph STORE["index/ ChromaDB (cosine)"]
+        R[("rules 659")]
+        C[("cards 7,079")]
+        Q[("qna 2,699")]
+    end
+    BUILD --> R
+    P2 --> C & Q
+
+    subgraph ONLINE["온라인 질의"]
+        UI["CLI · Gradio GUI · run.bat"] --> CORE["retrieve_all<br/>① 카드코드 정확 조회<br/>② 소스별 쿼터 검색 (룰6/카드4/Q&A4, 게이트 0.75)<br/>③ 연결 재정 조인 (2.5단계 예정)"]
+        CORE --> LLM["Ollama qwen3:8b<br/>인용 필수 · 우선순위: Q&A 재정 > 카드 > 룰"]
+    end
+    CORE -->|검색| STORE
+    CORE -.조인 (예정).-> GRAPH
+    CORE -.임베딩.-> EMB["Ollama bge-m3 (다국어, GPU)"]
+```
+
 ## 설치
 
 사전 준비: [Ollama](https://ollama.com) 설치 후 모델 다운로드
