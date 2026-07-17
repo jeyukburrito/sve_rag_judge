@@ -5,11 +5,11 @@
 
 ## 목적
 
-1단계 룰 Q&A에 카드 DB(13,903장)와 공식 Q&A(2,699건)를 추가해, 특정 카드가 얽힌 판정(룰링) 질문에 종합 근거로 답하는 저지로 확장한다. 사용 방식은 기존과 동일한 단일 채팅(CLI/GUI) — 질문이 들어오면 세 소스를 모두 검색해 종합 판정한다.
+1단계 룰 Q&A에 카드 DB(7,079장)와 공식 Q&A(2,699건)를 추가해, 특정 카드가 얽힌 판정(룰링) 질문에 종합 근거로 답하는 저지로 확장한다. 사용 방식은 기존과 동일한 단일 채팅(CLI/GUI) — 질문이 들어오면 세 소스를 모두 검색해 종합 판정한다.
 
 ## 데이터
 
-- `data/carddb/*.csv` (52파일, 13,903행): card_code, name, class, card_type, sub_type, cost, attack, hp, effect (일본어)
+- `data/carddb/*.csv` (52파일, 7,079레코드 — effect 필드에 줄바꿈이 있어 물리적 줄 수 13,955와 다름): card_code, name, class, card_type, sub_type, cost, attack, hp, effect (일본어)
 - `data/qna/unique_qna.jsonl` (2,699행): qa_id, date, scope, category, question, answer, source_url, cards(연결 카드 배열)
 
 ## 인덱싱
@@ -19,12 +19,12 @@
 | 컬렉션 | 건수 | 문서 형식 | 메타데이터 |
 |---|---|---|---|
 | `rules` | 659 | (기존 그대로, 재구축 없음) | rule_id, parent |
-| `cards` | 13,903 | `"{code} {name} / クラス:{class} / {card_type}({sub_type}) / コスト{cost} 攻{attack} 体{hp} / 効果: {effect}"` | card_code, name, class, card_type |
+| `cards` | 7,079 | `"{code} {name} / クラス:{class} / {card_type}({sub_type}) / コスト{cost} 攻{attack} 体{hp} / 効果: {effect}"` | card_code, name, class, card_type |
 | `qna` | 2,699 | `"Q: {question}\nA: {answer}"` | qa_id, category, cards(콤마 문자열), date |
 
 - `src/build_index.py`의 임베딩+저장 루프를 `index_documents()` 헬퍼로 추출(기존 CLI 동작 불변), 신규 `src/build_phase2_index.py`가 재사용
 - 재실행 시 해당 컬렉션 삭제 후 전체 재구축 (기존 패턴)
-- 소요: CPU 기준 1회 40~60분, GPU 인식 시 수 분 (Ollama가 GPU 자동 사용; 구현 시 `ollama ps`로 확인)
+- 소요: CPU 기준 1회 25~35분, GPU 인식 시 수 분 (Ollama가 GPU 자동 사용; 구현 시 `ollama ps`로 확인)
 
 ## 검색·판정
 
