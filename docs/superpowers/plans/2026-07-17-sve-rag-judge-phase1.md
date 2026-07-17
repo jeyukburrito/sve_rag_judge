@@ -4,9 +4,9 @@
 
 **Goal:** 일본어 SVE 종합 룰북에 대해 한국어로 질문하면 룰 번호를 인용해 답변하는 로컬 CLI를 만든다.
 
-**Architecture:** 오프라인 인덱싱(기존 PDF 추출 파이프라인 → 조항 단위 청킹 → bge-m3 임베딩 → ChromaDB)과 온라인 질의(질문 임베딩 → top-k 검색 → Ollama LLM 답변 생성)의 2단 구조. 프레임워크 없이 chromadb/ollama 파이썬 클라이언트 직접 호출.
+**Architecture:** 오프라인 인덱싱(기존 PDF 추출 파이프라인 → 조항 단위 청킹 → bge-m3 임베딩 → ChromaDB)과 온라인 질의(질문 임베딩 → top-k 검색 → Ollama LLM 답변 생성)의 2단 구조. RAG 배선은 LangChain(langchain-chroma, langchain-ollama), 청킹은 조항 번호 기반 커스텀 로직.
 
-**Tech Stack:** Python 3.13, chromadb (persistent local), ollama (bge-m3 임베딩 + qwen3 LLM), opendataloader-pdf (기존 추출 스크립트 의존성), pytest
+**Tech Stack:** Python 3.13, LangChain (langchain-chroma + langchain-ollama), ChromaDB (persistent local), Ollama (bge-m3 임베딩 + qwen3 LLM), opendataloader-pdf (기존 추출 스크립트 의존성), pytest
 
 **Spec:** `docs/superpowers/specs/2026-07-17-sve-rag-judge-design.md`
 
@@ -14,7 +14,7 @@
 
 - 전부 무료/로컬 실행. 유료 API 호출 금지.
 - 모든 답변은 `[룰 X.X.X]` 형식 인용 필수. 근거 부족 시 정확히 "룰북에서 근거를 찾지 못했습니다"로 답하는 프롬프트 유지.
-- LangChain 사용 허용되나 필수 아님. 이 계획은 직접 호출로 구현한다.
+- RAG 배선(임베딩·벡터스토어·LLM 호출)은 LangChain(langchain-chroma, langchain-ollama)을 사용한다. 청킹은 커스텀 로직.
 - 생성/수정 파일은 이 계획에 명시된 것만. 기존 `scripts/`, `data/`는 수정 금지.
 - 산출물 디렉터리 `build/`(추출 텍스트)와 `index/`(ChromaDB)는 gitignore 대상.
 - 커밋 메시지 끝에 다음 트레일러를 붙인다:
@@ -36,10 +36,12 @@
 
 ```
 opendataloader-pdf
-chromadb
-ollama
+langchain-chroma
+langchain-ollama
 pytest
 ```
+
+(chromadb와 ollama 파이썬 클라이언트는 위 langchain 패키지들의 의존성으로 함께 설치된다.)
 
 - [ ] **Step 2: .gitignore에 산출물 디렉터리 추가**
 
@@ -251,7 +253,8 @@ import json
 from pathlib import Path
 
 import chromadb
-import ollama
+from langchain_chroma import Chroma
+from langchain_ollama import OllamaEmbeddings
 
 EMBED_MODEL = "bge-m3"
 BATCH = 64
@@ -271,16 +274,20 @@ def main() -> None:
         client.delete_collection("rules")
     except Exception:
         pass  # 최초 실행이면 컬렉션이 없다
-    col = client.create_collection("rules", metadata={"hnsw:space": "cosine"})
+
+    store = Chroma(
+        client=client,
+        collection_name="rules",
+        embedding_function=OllamaEmbeddings(model=EMBED_MODEL),
+        collection_metadata={"hnsw:space": "cosine"},
+    )
 
     for i in range(0, len(chunks), BATCH):
         batch = chunks[i:i + BATCH]
-        embs = ollama.embed(model=EMBED_MODEL, input=[c["text"] for c in batch])["embeddings"]
-        col.add(
-            ids=[str(i + j) for j in range(len(batch))],
-            embeddings=embs,
-            documents=[c["text"] for c in batch],
+        store.add_texts(
+            texts=[c["text"] for c in batch],
             metadatas=[{"rule_id": c["rule_id"], "parent": c["parent"]} for c in batch],
+            ids=[str(i + j) for j in range(len(batch))],
         )
         print(f"{min(i + BATCH, len(chunks))}/{len(chunks)}")
 
@@ -301,12 +308,11 @@ Expected: 진행 카운터 출력 후 "완료: N개 청크 → index/rules". `in
 Run:
 ```bash
 python -c "
-import chromadb, ollama
-col = chromadb.PersistentClient(path='index').get_collection('rules')
-emb = ollama.embed(model='bge-m3', input=['진화는 언제 할 수 있나요?'])['embeddings'][0]
-res = col.query(query_embeddings=[emb], n_results=3)
-for m, d, dist in zip(res['metadatas'][0], res['documents'][0], res['distances'][0]):
-    print(m['rule_id'], f'{dist:.3f}', d[:80])
+from langchain_chroma import Chroma
+from langchain_ollama import OllamaEmbeddings
+store = Chroma(collection_name='rules', persist_directory='index', embedding_function=OllamaEmbeddings(model='bge-m3'))
+for doc, dist in store.similarity_search_with_score('진화는 언제 할 수 있나요?', k=3):
+    print(doc.metadata['rule_id'], f'{dist:.3f}', doc.page_content[:80])
 "
 ```
 Expected: 진화(進化) 관련 일본어 조항이 상위에 나오고 distance가 대략 0.6 이하. 무관한 조항만 나오면 멈추고 보고할 것.
@@ -337,8 +343,10 @@ git commit -m "feat: build ChromaDB index with bge-m3 embeddings"
 import argparse
 import sys
 
-import chromadb
 import ollama
+from langchain_chroma import Chroma
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_ollama import ChatOllama, OllamaEmbeddings
 
 EMBED_MODEL = "bge-m3"
 DEFAULT_LLM = "qwen3:8b"
@@ -363,25 +371,18 @@ def ensure_ollama(models: list[str]) -> None:
             sys.exit(f"모델이 없습니다. 먼저 실행하세요: ollama pull {model}")
 
 
-def retrieve(col, question: str) -> list[tuple[str, str, float]]:
-    emb = ollama.embed(model=EMBED_MODEL, input=[question])["embeddings"][0]
-    res = col.query(query_embeddings=[emb], n_results=TOP_K)
-    return [
-        (m["rule_id"], doc, dist)
-        for m, doc, dist in zip(res["metadatas"][0], res["documents"][0], res["distances"][0])
-    ]
+def retrieve(store: Chroma, question: str) -> list[tuple[str, str, float]]:
+    hits = store.similarity_search_with_score(question, k=TOP_K)
+    return [(doc.metadata["rule_id"], doc.page_content, dist) for doc, dist in hits]
 
 
-def answer(llm: str, question: str, hits: list[tuple[str, str, float]]) -> str:
+def answer(llm: ChatOllama, question: str, hits: list[tuple[str, str, float]]) -> str:
     context = "\n\n".join(f"[룰 {rid}] {doc}" for rid, doc, _ in hits)
-    res = ollama.chat(
-        model=llm,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"룰 조항:\n{context}\n\n질문: {question}"},
-        ],
-    )
-    return res["message"]["content"]
+    res = llm.invoke([
+        SystemMessage(content=SYSTEM_PROMPT),
+        HumanMessage(content=f"룰 조항:\n{context}\n\n질문: {question}"),
+    ])
+    return res.content
 
 
 def main() -> None:
@@ -391,7 +392,12 @@ def main() -> None:
     args = p.parse_args()
 
     ensure_ollama([EMBED_MODEL, args.llm])
-    col = chromadb.PersistentClient(path=args.db).get_collection("rules")
+    store = Chroma(
+        collection_name="rules",
+        persist_directory=args.db,
+        embedding_function=OllamaEmbeddings(model=EMBED_MODEL),
+    )
+    llm = ChatOllama(model=args.llm)
 
     print("SVE 룰 저지 — 질문을 입력하세요 (종료: 빈 줄)")
     while True:
@@ -401,11 +407,11 @@ def main() -> None:
             break
         if not question:
             break
-        hits = [h for h in retrieve(col, question) if h[2] <= MAX_DISTANCE]
+        hits = [h for h in retrieve(store, question) if h[2] <= MAX_DISTANCE]
         if not hits:
             print("관련 조항을 찾지 못했습니다.")
             continue
-        print("\n" + answer(args.llm, question, hits))
+        print("\n" + answer(llm, question, hits))
         print("\n--- 참조 조항 ---")
         for rid, doc, dist in hits:
             print(f"[룰 {rid}] (거리 {dist:.2f}) {doc[:120]}")

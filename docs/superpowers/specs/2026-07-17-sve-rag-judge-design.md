@@ -14,7 +14,7 @@ Shadowverse Evolve 종합 룰북(일본어, v1.26.1)에 대해 한국어로 룰 
 
 - 전부 무료/오픈소스/로컬 실행 (API 비용 없음)
 - 모든 답변은 룰 번호 인용 필수. 근거를 찾지 못하면 "모른다"고 답한다 — 확신에 찬 오답보다 낫다
-- 벡터 저장소는 ChromaDB. LangChain 사용은 허용되나 필수 아님 (1단계 구현은 chromadb/ollama 클라이언트 직접 호출로 충분하면 직접 호출 우선)
+- 벡터 저장소는 ChromaDB, RAG 배선은 LangChain(langchain-chroma, langchain-ollama) 사용. 청킹은 조항 번호 기반 커스텀 로직 유지 (LangChain 스플리터로는 룰 번호 청킹 불가)
 
 ## 아키텍처
 
